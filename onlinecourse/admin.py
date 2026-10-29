@@ -1,58 +1,48 @@
 from django.contrib import admin
-from django.contrib.auth.admin import GroupAdmin, UserAdmin
-from django.contrib.auth.models import Group, User
-
 from .models import (
-    Choice,
     Course,
     Lesson,
     Question,
+    Choice,
     Submission,
-    Instructor,
+    Enrollment,
     Learner,
 )
 
 
-# Authentication and Authorization
-admin.site.unregister(User)
-admin.site.unregister(Group)
-
-admin.site.register(User, UserAdmin)
-admin.site.register(Group, GroupAdmin)
-
-
-# Course -> Questions -> Choices
-class ChoiceInline(admin.TabularInline):
+class ChoiceInline(admin.StackedInline):
     model = Choice
-    extra = 4
+    extra = 2
 
 
 class QuestionInline(admin.StackedInline):
     model = Question
-    extra = 1
+    extra = 2
+    inlines = [ChoiceInline]
 
 
-@admin.register(Course)
-class CourseAdmin(admin.ModelAdmin):
-    list_display = ("name", "description")
-
-
-@admin.register(Lesson)
-class LessonAdmin(admin.ModelAdmin):
-    inlines = [QuestionInline]
-    list_display = ("title", "course")
-    search_fields = ["title", "course__name"]
-
-
-@admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
     inlines = [ChoiceInline]
-    list_display = ("question_text", "lesson")
-    search_fields = ["question_text"]
+    list_display = ("question_text", "course", "grade")
+    search_fields = ("question_text",)
 
 
-# Required OnlineCourse models
+class LessonAdmin(admin.ModelAdmin):
+    list_display = ("title", "course", "order")
+    list_filter = ("course",)
+    search_fields = ("title",)
+
+
+class CourseAdmin(admin.ModelAdmin):
+    inlines = [QuestionInline]
+    list_filter = ("name",)
+    search_fields = ("name", "description")
+
+
+admin.site.register(Course, CourseAdmin)
+admin.site.register(Lesson, LessonAdmin)
+admin.site.register(Question, QuestionAdmin)
 admin.site.register(Choice)
 admin.site.register(Submission)
-admin.site.register(Instructor)
+admin.site.register(Enrollment)
 admin.site.register(Learner)
