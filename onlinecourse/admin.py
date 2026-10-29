@@ -1,12 +1,13 @@
 from django.contrib import admin
+
 from .models import (
     Course,
     Lesson,
     Question,
     Choice,
     Submission,
-    Enrollment,
     Learner,
+    Instructor,
 )
 
 
@@ -18,31 +19,30 @@ class ChoiceInline(admin.StackedInline):
 class QuestionInline(admin.StackedInline):
     model = Question
     extra = 2
-    inlines = [ChoiceInline]
 
 
+@admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
-    inlines = [ChoiceInline]
     list_display = ("question_text", "course", "grade")
     search_fields = ("question_text",)
+    list_filter = ("course",)
+    inlines = [ChoiceInline]
 
 
+@admin.register(Lesson)
 class LessonAdmin(admin.ModelAdmin):
     list_display = ("title", "course", "order")
     list_filter = ("course",)
     search_fields = ("title",)
 
 
+@admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    inlines = [QuestionInline]
-    list_filter = ("name",)
+    list_display = ("name", "description")
     search_fields = ("name", "description")
 
 
-admin.site.register(Course, CourseAdmin)
-admin.site.register(Lesson, LessonAdmin)
-admin.site.register(Question, QuestionAdmin)
 admin.site.register(Choice)
 admin.site.register(Submission)
-admin.site.register(Enrollment)
 admin.site.register(Learner)
+admin.site.register(Instructor)
