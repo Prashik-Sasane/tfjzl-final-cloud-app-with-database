@@ -1,4 +1,3 @@
-```python
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -190,4 +189,3 @@ def show_exam_result(request, course_id, submission_id):
         "onlinecourse/exam_result_bootstrap.html",
         context,
     )
-```
