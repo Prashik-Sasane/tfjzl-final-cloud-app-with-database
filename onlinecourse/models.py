@@ -1,4 +1,3 @@
-```python
 from django.db import models
 
 
@@ -69,4 +68,3 @@ class Submission(models.Model):
 
     def __str__(self):
         return f"Submission for Enrollment {self.enrollment.id}"
-```
