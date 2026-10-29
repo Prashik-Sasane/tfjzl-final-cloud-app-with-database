@@ -9,8 +9,6 @@ from .models import (
     Question,
     Submission,
     SubmissionAnswer,
-    Learner,
-    Enrollment,
 )
 
 
@@ -52,36 +50,22 @@ def submit(request, course_id):
 
     course = get_object_or_404(Course, pk=course_id)
 
-    student_name = request.POST.get("student_name", "").strip()
-
-    if not student_name:
-        return render(
-            request,
-            "onlinecourse/course_details_bootstrap.html",
-            {
-                "course": course,
-                "error": "Please enter your name.",
-            },
-            status=400,
-        )
-
-    learner = Learner.objects.create(
-        name=student_name,
-        email="",
-    )
-
-    enrollment = Enrollment.objects.create(
-        learner=learner,
-        course=course,
-    )
-
-    submission = Submission.objects.create(
-        enrollment=enrollment,
-    )
+    student_name = request.POST.get(
+        "student_name", "Student"
+    ).strip() or "Student"
 
     questions = Question.objects.filter(
         lesson__course=course
     ).prefetch_related("choices")
+
+    submission = Submission.objects.create(
+        course=course,
+        student_name=student_name,
+        score=0,
+    )
+
+    total_score = 0
+    possible_score = 0
 
     for question in questions:
         selected_choice_id = request.POST.get(
@@ -95,12 +79,21 @@ def submit(request, course_id):
                 pk=selected_choice_id
             ).first()
 
-        is_correct = bool(
-            selected_choice and selected_choice.is_correct
+        selected_choices = (
+            [selected_choice] if selected_choice else []
         )
 
-        if selected_choice:
-            submission.choices.add(selected_choice)
+        question_score = question.is_get_score(
+            selected_choices
+        )
+
+        possible_score += question.grade
+        total_score += question_score
+
+        is_correct = (
+            selected_choice is not None
+            and selected_choice.is_correct
+        )
 
         SubmissionAnswer.objects.create(
             submission=submission,
@@ -108,6 +101,9 @@ def submit(request, course_id):
             selected_choice=selected_choice,
             is_correct=is_correct,
         )
+
+    submission.score = total_score
+    submission.save(update_fields=["score"])
 
     return redirect(
         "onlinecourse:show_exam_result",
@@ -120,21 +116,14 @@ def show_exam_result(request, course_id, submission_id):
     course = get_object_or_404(Course, pk=course_id)
 
     submission = get_object_or_404(
-        Submission.objects.select_related(
-            "enrollment__learner",
-            "enrollment__course",
-        ),
+        Submission,
         pk=submission_id,
-        enrollment__course=course,
+        course=course,
     )
 
     questions = Question.objects.filter(
         lesson__course=course
     ).prefetch_related("choices")
-
-    total_score = 0
-    possible_score = 0
-    results = []
 
     answers = {
         answer.question_id: answer
@@ -144,44 +133,62 @@ def show_exam_result(request, course_id, submission_id):
         )
     }
 
-    for question in questions:
-        possible_score += question.grade
+    selected_ids = []
+    grade = 0
+    possible = 0
+    results = []
 
-        selected_choices = submission.choices.filter(
-            question=question
+    for question in questions:
+        answer = answers.get(question.id)
+
+        selected_choice = (
+            answer.selected_choice
+            if answer else None
         )
 
-        question_score = question.is_get_score(
+        question_selected_ids = (
+            [selected_choice.id]
+            if selected_choice else []
+        )
+
+        selected_ids.extend(question_selected_ids)
+
+        selected_choices = (
+            [selected_choice]
+            if selected_choice else []
+        )
+
+        question_grade = question.is_get_score(
             selected_choices
         )
 
-        total_score += question_score
+        question_possible = question.grade
 
-        answer = answers.get(question.id)
+        grade += question_grade
+        possible += question_possible
 
         results.append({
             "question_text": question.question_text,
             "selected_choice": (
-                answer.selected_choice.choice_text
-                if answer and answer.selected_choice
+                selected_choice.choice_text
+                if selected_choice
                 else "No answer selected"
             ),
+            "selected_ids": question_selected_ids,
             "is_correct": bool(
                 answer and answer.is_correct
             ),
-            "question_score": question_score,
-            "question_grade": question.grade,
+            "grade": question_grade,
+            "possible": question_possible,
         })
 
     context = {
         "course": course,
         "submission": submission,
-        "learner": submission.enrollment.learner,
         "results": results,
-        "total_score": total_score,
-        "possible_score": possible_score,
-        "score": total_score,
-        "total_questions": len(results),
+        "selected_ids": selected_ids,
+        "grade": grade,
+        "possible": possible,
     }
 
     return render(
