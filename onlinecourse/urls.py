@@ -20,7 +20,7 @@ urlpatterns = [
         name="submit",
     ),
     path(
-        "submission/<int:submission_id>/result/",
+        "course/<int:course_id>/submission/<int:submission_id>/result/",
         views.show_exam_result,
         name="show_exam_result",
     ),
